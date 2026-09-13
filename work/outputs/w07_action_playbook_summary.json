@@ -1,0 +1,19 @@
+{
+  "model": "logistic_regression",
+  "split": "client_grouped_holdout",
+  "n_test_rows": 7115,
+  "n_test_clients": 8,
+  "base_rate_test": 0.517,
+  "precision_at_50_model": 0.74,
+  "precision_at_50_baseline_week4": 0.48,
+  "action_counts": {
+    "monitor": 3538,
+    "refresh_priority_1": 1793,
+    "refresh_review": 1103,
+    "no_action": 681
+  },
+  "base_rate_declining_test": 0.517,
+  "precision_at_50_baseline": 0.48,
+  "n_clients_validated": 32,
+  "avg_position_no_data_rate": 0.0402
+}
