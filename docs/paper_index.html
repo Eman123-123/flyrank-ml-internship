@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Which pages should you refresh first? A validated decline-risk model for content teams</title>
+<meta name="description" content="A decline-risk classifier for content refresh prioritization, validated against a rule-based baseline on 30,000 real SEO pages.">
+<style>
+  :root {
+    --ink: #1b2430;
+    --muted: #55606b;
+    --line: #e3e7ea;
+    --accent: #2e6b5e;
+    --accent-soft: #e6f0ed;
+    --bad: #b5493a;
+    --bg: #fbfaf7;
+    --card: #ffffff;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 20px 80px; }
+  header.hero {
+    background: linear-gradient(180deg, #1b2430 0%, #24312d 100%);
+    color: #f3f5f2;
+    padding: 64px 20px 48px;
+  }
+  header.hero .wrap { padding: 0; }
+  .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.78rem;
+    color: #9fd8c4;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  h1.title {
+    font-size: 2.1rem;
+    line-height: 1.25;
+    margin: 0 0 18px;
+    font-weight: 700;
+  }
+  .meta {
+    color: #c7cfc9;
+    font-size: 0.92rem;
+    margin-bottom: 28px;
+  }
+  .abstract-box {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    padding: 22px 24px;
+    font-size: 1.02rem;
+  }
+  .abstract-box strong { color: #d9f0e6; }
+  nav.toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: -28px 0 40px;
+    font-size: 0.92rem;
+  }
+  nav.toc div.toc-title { font-weight: 700; margin-bottom: 8px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc ol { columns: 2; column-gap: 24px; margin: 0; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  section { margin: 48px 0; }
+  h2 {
+    font-size: 1.4rem;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+  }
+  h3 { font-size: 1.08rem; margin-top: 26px; }
+  p { margin: 0 0 14px; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 6px;
+    margin: 18px 0;
+    font-size: 0.96rem;
+  }
+  .callout.warn { background: #fbeceA; border-left-color: var(--bad); }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.92rem; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+  th { background: #f2f4f1; font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .best { background: var(--accent-soft); font-weight: 600; }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px 14px;
+    margin: 20px 0;
+  }
+  .bar-row { display: flex; align-items: center; margin: 10px 0; gap: 12px; }
+  .bar-label { width: 190px; font-size: 0.86rem; color: var(--muted); flex-shrink: 0; }
+  .bar-track { flex: 1; background: #eef1ee; border-radius: 4px; height: 20px; position: relative; }
+  .bar-fill { background: var(--accent); height: 100%; border-radius: 4px; }
+  .bar-fill.baseline { background: #b7bdb8; }
+  .bar-value { width: 52px; text-align: right; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  .chart-caption { font-size: 0.86rem; color: var(--muted); margin-top: 8px; }
+  .split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 18px 0;
+  }
+  .split-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .split-card .num { font-size: 1.7rem; font-weight: 700; }
+  .split-card .lbl { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+  .split-card.honest .num { color: var(--accent); }
+  .split-card.naive .num { color: var(--bad); }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { font-family: var(--mono); background: #f0f2ee; padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .action-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .action-card .count { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .action-card .name { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 60px;
+    padding-top: 28px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); }
+  .repro-block {
+    background: #1b2430;
+    color: #e6ede8;
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+  }
+  @media (max-width: 600px) {
+    h1.title { font-size: 1.55rem; }
+    nav.toc ol { columns: 1; }
+    .split-grid { grid-template-columns: 1fr; }
+    .bar-label { width: 120px; font-size: 0.78rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">FlyRank ML Internship &middot; Capstone Research Paper</div>
+    <h1 class="title">Which pages should you refresh first? A validated decline-risk model for content teams</h1>
+    <div class="meta">Refresh / Content Opportunity Scoring lane &middot; September 2026</div>
+    <div class="abstract-box">
+      <strong>Abstract.</strong> Which of a content team's existing pages should be prioritized
+      for review this week, using only observed search and content signals? I built a
+      decline-risk classifier on the FlyRank ML Internship starter dataset (30,000 pseudonymized
+      pages, 32 clients) and compared it against a transparent rule-based baseline on an
+      identical client-held-out split. Logistic regression reached a precision@50 of
+      <strong>0.74</strong> versus the baseline's <strong>0.48</strong> (base rate 0.517) while
+      staying interpretable, and two deliberate stress tests &mdash; a naive random split and a
+      reintroduced label-derived feature &mdash; each showed how easily that number can be
+      overstated if validation is sloppy. The output is a ranked, reason-coded action queue meant
+      for a human reviewer's weekly triage, not an automated publishing decision.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#intro">Introduction</a></li>
+    <li><a href="#data">Data</a></li>
+    <li><a href="#methodology">Methodology</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#limitations">Limitations</a></li>
+    <li><a href="#recommendations">Recommendations</a></li>
+    <li><a href="#reproducibility">Reproducibility</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</nav>
+
+<section id="intro">
+  <h2>Introduction &amp; Problem Statement</h2>
+  <p>
+    A content team reviewing hundreds or thousands of existing pages can't manually check every
+    one every week. The decision this work supports is narrow and practical: <strong>given a
+    limited review budget, which pages should a human look at first?</strong> The unit of
+    analysis is one content page, belonging to one pseudonymized client. The output is a ranked
+    queue with a risk score, an action label, and a plain-language reason &mdash; not an
+    automated publish, unpublish, or de-index decision.
+  </p>
+  <p>
+    A wrong call has a real, if modest, cost either way: a false positive wastes reviewer time on
+    a page that wasn't really at risk; a false negative lets a genuinely declining page go
+    unreviewed, and lost search visibility gets harder to win back the longer it's ignored. A
+    single hand-written rule can combine two or three signals; the pattern that actually separates
+    a declining page from a stable one usually involves several signals at once (traffic level,
+    position, freshness, depth) &mdash; which is where a learned model can help, provided it's
+    validated honestly enough to trust.
+  </p>
+</section>
+
+<section id="data">
+  <h2>Data</h2>
+  <p>
+    <strong>Source:</strong> the FlyRank ML Internship starter release &mdash; 30,000
+    pseudonymized content pages across 32 pseudonymized clients, every metric aggregated over a
+    trailing 90-day window ending at export time. No client names, domains, URLs, credentials, or
+    raw search queries appear anywhere in this analysis.
+  </p>
+  <h3>Deliberately excluded, and why</h3>
+  <ul>
+    <li><code>trend_direction</code>, <code>trend_pct</code> &mdash; the label is computed
+      directly from these; including them would be circular.</li>
+    <li><code>impressions_last_30d</code> / <code>impressions_prev_30d</code> (and their
+      clicks/sessions twins) &mdash; their difference <em>is</em> the label. Re-adding just two
+      of these columns as a test moved ROC AUC from 0.625 to 0.846 &mdash; a clean confession of
+      label leakage.</li>
+    <li><code>content_id</code>, <code>client_id</code> &mdash; pseudonyms, used only for
+      grouping and splitting, never as model inputs.</li>
+    <li><code>provider_used</code>, <code>model_used</code> &mdash; explicitly out of scope per
+      the data dictionary.</li>
+  </ul>
+</section>
+
+<section id="methodology">
+  <h2>Methodology</h2>
+  <p>
+    <strong>Label:</strong> <code>target_declining</code> = 1 when
+    <code>trend_direction == "down"</code> &mdash; a 30-day-vs-previous-30-day impressions swing,
+    treated throughout as a proxy for "at risk," never a verified outcome.
+  </p>
+  <p>
+    <strong>Baseline:</strong> a transparent, no-fitted-weights rule &mdash;
+    <code>stale &times; visible &times; impressions</code> plus a bonus for page-one pages
+    pulling below-median CTR for their position &mdash; with both thresholds fit on training
+    clients only and frozen before scoring the held-out test clients. (An earlier version that
+    fit thresholds on the same data being scored inflated precision@50 to 0.88; fitting on train
+    only is the honest number used everywhere below.)
+  </p>
+  <p>
+    <strong>Features:</strong> trailing-90-day counts (log-transformed), CTR, average position
+    (with a flag for FlyRank's "no data" zero-rows), content age, days since update, keyword
+    context, content depth &mdash; with explicit missingness flags rather than silent
+    zero-filling.
+  </p>
+  <p>
+    <strong>Models:</strong> logistic regression, a shallow decision tree, random forest, and
+    gradient boosting &mdash; testing whether extra complexity earns its place rather than
+    assuming it does.
+  </p>
+  <p>
+    <strong>Validation:</strong> grouped by client (25% of clients held out, zero client overlap
+    between train and test) &mdash; the honest question is "does this work for a client the
+    model has never seen," not "can it memorize this client's typical traffic level."
+  </p>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p>Base rate on the held-out test split: <strong>0.517</strong>. Model vs. baseline, same split, same metric:</p>
+
+  <div class="chart-card">
+    <div class="bar-row">
+      <div class="bar-label">baseline_rules (Week 4)</div>
+      <div class="bar-track"><div class="bar-fill baseline" style="width:48%"></div></div>
+      <div class="bar-value">0.48</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><strong>logistic_regression</strong></div>
+      <div class="bar-track"><div class="bar-fill" style="width:74%"></div></div>
+      <div class="bar-value">0.74</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">decision_tree</div>
+      <div class="bar-track"><div class="bar-fill" style="width:42%"></div></div>
+      <div class="bar-value">0.42</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">random_forest</div>
+      <div class="bar-track"><div class="bar-fill" style="width:50%"></div></div>
+      <div class="bar-value">0.50</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">gradient_boosting</div>
+      <div class="bar-track"><div class="bar-fill" style="width:72%"></div></div>
+      <div class="bar-value">0.72</div>
+    </div>
+    <div class="chart-caption">Precision@50 by model, client-held-out test split. Every trained model beats the rule baseline; the deeper models don't beat logistic regression.</div>
+  </div>
+
+  <table>
+    <thead><tr><th>Model</th><th class="num">ROC AUC</th><th class="num">Avg. precision</th><th class="num">Precision@50</th></tr></thead>
+    <tbody>
+      <tr><td>baseline_rules (Week 4)</td><td class="num">0.544</td><td class="num">0.556</td><td class="num">0.48</td></tr>
+      <tr class="best"><td>logistic_regression</td><td class="num">0.625</td><td class="num">0.622</td><td class="num">0.74</td></tr>
+      <tr><td>decision_tree</td><td class="num">0.605</td><td class="num">0.588</td><td class="num">0.42</td></tr>
+      <tr><td>random_forest</td><td class="num">0.607</td><td class="num">0.591</td><td class="num">0.50</td></tr>
+      <tr><td>gradient_boosting</td><td class="num">0.623</td><td class="num">0.613</td><td class="num">0.72</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Why the split matters</h3>
+  <p>The same logistic regression, retrained under a naive random row split instead of a client-grouped one:</p>
+  <div class="split-grid">
+    <div class="split-card naive">
+      <div class="num">0.94</div>
+      <div class="lbl">precision@50 &mdash; naive random split</div>
+    </div>
+    <div class="split-card honest">
+      <div class="num">0.74</div>
+      <div class="lbl">precision@50 &mdash; honest client-grouped split</div>
+    </div>
+  </div>
+  <div class="callout warn">
+    A 20-point gap, from letting a client's other pages leak into training. The headline number in
+    this paper is the honest one.
+  </div>
+
+  <h3>Leakage audit</h3>
+  <p>
+    Deliberately adding back <code>impressions_last_30d</code> / <code>impressions_prev_30d</code>
+    &mdash; columns whose difference defines the label &mdash; moves ROC AUC from <strong>0.625
+    to 0.846</strong>. That jump toward a near-perfect score is the textbook confession described
+    in this project's leakage-hunting process; those columns stay out of the real model.
+  </p>
+
+  <h3>Interpretation</h3>
+  <p>
+    Permutation importance on the winning model: overall traffic volume
+    (<code>log_impressions_90d</code>, <code>log_clicks_90d</code>, <code>log_users_90d</code>)
+    dominates, with <code>avg_position</code> a clear second. This is a sane, non-circular story:
+    lower-traffic pages have noisier 30-day counts, so they cross the trend threshold more easily
+    &mdash; the model has partly learned "which pages are volatile enough to swing." No single
+    feature pushed AUC anywhere near 1.0 alone, which is the leakage smell test coming back clean.
+  </p>
+  <p>
+    Error analysis: false positives (flagged as declining, actually not) sit at a higher median
+    impression volume than false negatives or correct predictions &mdash; the model over-flags
+    some large, stable pages. False negatives concentrate in low-traffic pages, exactly where the
+    30-day trend proxy is noisiest &mdash; some of this "error" is a proxy-label ceiling, not a
+    pure modeling gap.
+  </p>
+</section>
+
+<section id="limitations">
+  <h2>Limitations &amp; Honest Framing</h2>
+  <ul>
+    <li><strong>Proxy label, not ground truth.</strong> The target is a 30-day-vs-30-day
+      impressions swing, not a verified business outcome.</li>
+    <li><strong>No causal claim.</strong> This ranks decline <em>risk</em>; it does not show that
+      refreshing a flagged page will fix it, and nothing here predicts or reverse-engineers
+      Google's ranking algorithm.</li>
+    <li><strong>Validated on 32 clients, one snapshot.</strong> No time-based validation was run;
+      claims about future periods or unseen client types are unsupported.</li>
+    <li><strong>Split choice changes the headline number by 20 points</strong> &mdash; a reminder
+      that any single precision@K figure is only as honest as the split behind it.</li>
+    <li><strong>Decision-support only.</strong> Output is a ranked queue for a human reviewer,
+      never an automated action.</li>
+  </ul>
+</section>
+
+<section id="recommendations">
+  <h2>Ranked Recommendations</h2>
+  <p>
+    The action queue, scored on held-out pages the model never trained on, sorts into four
+    actions:
+  </p>
+  <div class="action-grid">
+    <div class="action-card"><div class="count">1,793</div><div class="name">refresh_priority_1<br>(declining + page-1)</div></div>
+    <div class="action-card"><div class="count">1,103</div><div class="name">refresh_review<br>(declining, lower rank)</div></div>
+    <div class="action-card"><div class="count">3,538</div><div class="name">monitor</div></div>
+    <div class="action-card"><div class="count">681</div><div class="name">no_action<br>(low risk)</div></div>
+  </div>
+  <p>
+    A reviewer works the queue top-down by score. Before acting on any flagged row, a human should
+    confirm the position data is real (not FlyRank's "no data" zero), rule out a seasonal or
+    one-off traffic dip, and consider whether the page's content type makes a refresh worthwhile
+    at all. This output should never trigger automated publishing, editing, or de-indexing, and
+    should never be used to compare one client's content team against another's.
+  </p>
+</section>
+
+<section id="reproducibility">
+  <h2>Reproducibility</h2>
+  <p>Random seed 42 fixed throughout. Full notebooks: 
+    <a href="https://github.com/Eman123-123/flyrank-ml-internship/tree/main/work/notebooks">work/notebooks/</a>
+    in the project repo (see <code>w05_model.ipynb</code>, <code>w06_validation_audit.ipynb</code>,
+    <code>w07_action_playbook.ipynb</code>, <code>capstone.ipynb</code>).</p>
+  <div class="repro-block">git clone https://github.com/Eman123-123/flyrank-ml-internship.git
+cd flyrank-ml-internship
+pip install -r requirements.txt
+jupyter nbconvert --to notebook --execute --inplace work/notebooks/capstone.ipynb</div>
+  <p style="margin-top:14px;">Executed top-to-bottom with no errors on scikit-learn 1.8.0 / pandas
+    3.0.2 / numpy 2.4.4; small third-decimal shifts are expected on older library versions.</p>
+</section>
+
+<footer id="acknowledgments">
+  <p><strong>Acknowledgments &amp; data credit.</strong> Built on the FlyRank ML Internship
+  dataset &mdash; <a href="https://flyrank.ai">flyrank.ai</a>.</p>
+  <p>Full capstone report and code: <a href="https://github.com/Eman123-123/flyrank-ml-internship">github.com/Eman123-123/flyrank-ml-internship</a></p>
+</footer>
+
+</div>
+</body>
+</html>
